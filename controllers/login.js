@@ -1,4 +1,4 @@
-const { User, Movie, Genre } = require("../models");
+const { User } = require("../models");
 const { token } = require("../helpers/jwt");
 const { decrypt } = require("../helpers/bcrypt");
 const { OAuth2Client } = require("google-auth-library");
@@ -7,14 +7,11 @@ const clientID = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 class ControllerLogin {
   static async register(req, res, next) {
     try {
-      const { username, email, password, phoneNumber, address } = req.body;
+      const { username, email, password } = req.body;
       let newUser = await User.create({
         username,
         email,
         password,
-        role: "admin",
-        phoneNumber,
-        address,
       });
       res.status(201).json(newUser);
     } catch (error) {
@@ -25,30 +22,43 @@ class ControllerLogin {
   static async login(req, res, next) {
     try {
       const { email, password } = req.body;
-      console.log(email, password);
-      if (!email || !password) throw { name: "noInput" };
-      let data = await User.findOne({
+      // console.log(email, password);
+
+      if (!email) {
+        throw { status: 400, message: "Email is required" };
+      }
+      if (!password) {
+        throw { status: 400, message: "Password is required" };
+      }
+
+      let user = await User.findOne({
         where: {
           email: email,
         },
       });
-      if (!data) {
-        throw { name: "noEmail" };
-      } else {
-        const login = decrypt(password, data.password);
-        if (!login) {
-          throw { name: "wrongPassword" };
-        } else {
-          const payload = {
-            authorId: data.id,
-            email: data.email,
-            username: data.username,
-            role: data.role,
-          };
-          const genToken = token(payload);
-          res.status(200).json({ token: genToken, username: data.username, role: data.role, });
-        }
+
+      if (!user) {
+        throw { status: 401, message: "Invalid email/password" };
       }
+
+      const login = decrypt(password, user.password);
+
+      if (!login) {
+        throw { status: 401, message: "Invalid email/password" };
+      }
+
+      const payload = {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+      };
+
+      const genToken = token(payload);
+
+      res.status(200).json({
+        token: genToken,
+        username: data.username,
+      });
     } catch (error) {
       // console.log(error, "error");
       next(error);
@@ -73,19 +83,18 @@ class ControllerLogin {
           username: payload.name,
           email: payload.email,
           password: payload.email,
-          role: "staff",
         },
       });
+
       const payloadToken = {
-        authorId: newUser.id,
+        id: newUser.id,
         email: newUser.email,
         username: newUser.username,
-        role: newUser.role,
       };
       const genToken = token(payloadToken);
       res
         .status(201)
-        .json({ email: payload.email, isCreated, token: genToken });
+        .json({ email: newUser.email, username: newUser.username, isCreated, token: genToken });
     } catch (error) {
       next(error);
     }
@@ -93,43 +102,27 @@ class ControllerLogin {
 
   static async googleReg(req, res, next) {
     try {
-      const { email, password, phoneNumber, address } = req.body;
+      const { email, password} = req.body;
 
       let user = await User.update(
         {
           password,
-          phoneNumber,
-          address,
         },
         {
           where: {
             email,
           },
           individualHooks: true,
+          returning: true
         }
       );
 
-      res.status(201).json({ user, message: `Account has been created!` });
+      res.status(201).json({ username: user[1].dataValues.username, message: `Account has been created!` });
     } catch (error) {
       next(error);
     }
   }
 
-  static async userDetail(req, res, next) {
-    try {
-      const { authorId } = req.user;
-      const user = await User.findOne({
-        attributes: { exclude: ["password"] },
-        where: {
-          id: authorId,
-        },
-      });
-      if (!user) throw "User Not Found";
-      res.status(200).json({ user });
-    } catch (error) {
-      next(error);
-    }
-  }
 }
 
 module.exports = ControllerLogin;
