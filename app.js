@@ -3,7 +3,7 @@ if (process.env.NODE_ENV === "development") {
 }
 const cors = require("cors");
 const express = require("express");
-const errorHandler = require("./helpers/errors");
+// const errorHandler = require("./helpers/errors");
 const app = express();
 const routes = require("./routes");
 const PORT = process.env.PORT || 3000;

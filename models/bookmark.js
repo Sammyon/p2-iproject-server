@@ -11,7 +11,7 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
-      Bookmark.hasMany(models.User)
+      Bookmark.belongsTo(models.User)
     }
   }
   Bookmark.init({
